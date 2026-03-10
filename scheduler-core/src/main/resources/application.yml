@@ -1,0 +1,23 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: scheduler-core
+  datasource:
+    url: jdbc:mysql://localhost:3306/distributed_scheduler?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  kafka:
+    bootstrap-servers: localhost:9092
+  quartz:
+    job-store-type: memory
+
+scheduler:
+  kafka:
+    topic: scheduler_job_topic
