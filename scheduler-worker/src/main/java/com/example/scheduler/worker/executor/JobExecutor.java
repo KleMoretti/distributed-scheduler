@@ -38,6 +38,10 @@ public class JobExecutor {
     }
 
     public void execute(JobMessage message) {
+        if (message == null || message.getJobId() == null) {
+            log.warn("Ignore empty job message");
+            return;
+        }
         taskExecutor.execute(() -> runJob(message));
     }
 
@@ -46,6 +50,7 @@ public class JobExecutor {
         LocalDateTime end;
         int status = 1;
         String result = "SUCCESS";
+        int maxRetries = Math.max(0, message.getRetry() == null ? 0 : message.getRetry());
 
         try {
             Map<String, JobHandler> handlers = applicationContext.getBeansOfType(JobHandler.class);
@@ -53,10 +58,23 @@ public class JobExecutor {
             if (handler == null) {
                 throw new IllegalArgumentException("No handler found: " + message.getHandlerName());
             }
-            handler.execute(message.getParam());
+
+            int attempt = 0;
+            while (true) {
+                try {
+                    handler.execute(message.getParam());
+                    break;
+                } catch (Exception ex) {
+                    attempt++;
+                    if (attempt > maxRetries) {
+                        throw ex;
+                    }
+                    log.warn("Execute job {} failed at attempt {}, retrying", message.getJobId(), attempt, ex);
+                }
+            }
         } catch (Exception ex) {
             status = 0;
-            result = ex.getMessage();
+            result = ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName();
             log.error("Execute job {} failed", message.getJobId(), ex);
         } finally {
             end = LocalDateTime.now();

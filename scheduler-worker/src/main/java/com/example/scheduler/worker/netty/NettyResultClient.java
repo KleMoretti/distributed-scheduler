@@ -1,7 +1,6 @@
 package com.example.scheduler.worker.netty;
 
 import io.netty.bootstrap.Bootstrap;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -10,6 +9,8 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.string.StringEncoder;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,8 +29,22 @@ public class NettyResultClient {
     @Value("${scheduler.callback.port:19090}")
     private int port;
 
+    // Shared across all sendResult() calls — avoids spawning new threads per callback
+    private EventLoopGroup group;
+
+    @PostConstruct
+    public void init() {
+        group = new NioEventLoopGroup(1);
+    }
+
+    @PreDestroy
+    public void destroy() {
+        if (group != null) {
+            group.shutdownGracefully();
+        }
+    }
+
     public void sendResult(Long jobId, String workerId, int status, String message) {
-        EventLoopGroup group = new NioEventLoopGroup(1);
         try {
             Bootstrap bootstrap = new Bootstrap();
             bootstrap.group(group)
@@ -38,18 +53,17 @@ public class NettyResultClient {
                 .handler(new ChannelInitializer<SocketChannel>() {
                     @Override
                     protected void initChannel(SocketChannel ch) {
-                        ch.pipeline().addLast(new StringEncoder());
+                        ch.pipeline().addLast(new StringEncoder(StandardCharsets.UTF_8));
                     }
                 });
 
             Channel channel = bootstrap.connect(host, port).sync().channel();
             String payload = String.format("jobId=%d,worker=%s,status=%d,message=%s", jobId, workerId, status, message);
-            channel.writeAndFlush(Unpooled.copiedBuffer(payload, StandardCharsets.UTF_8)).sync();
+            // Write String directly so StringEncoder converts it — no manual ByteBuf wrapping needed
+            channel.writeAndFlush(payload).sync();
             channel.close().sync();
         } catch (Exception ex) {
             log.debug("Send netty callback failed, ignore for now", ex);
-        } finally {
-            group.shutdownGracefully();
         }
     }
 }

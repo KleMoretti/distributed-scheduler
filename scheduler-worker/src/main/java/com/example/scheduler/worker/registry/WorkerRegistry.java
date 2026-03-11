@@ -6,7 +6,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class WorkerRegistry {
@@ -25,11 +26,37 @@ public class WorkerRegistry {
 
     @Scheduled(initialDelay = 1000, fixedDelay = 10000)
     public void heartbeat() {
+        cleanupStaleWorkers();
         redisTemplate.opsForSet().add(RedisKeys.WORKER_LIST, workerId + ":" + workerAddress);
         redisTemplate.opsForValue().set(
             RedisKeys.WORKER_HEARTBEAT_PREFIX + workerId,
             "1",
-            Duration.ofSeconds(30)
+            30,
+            TimeUnit.SECONDS
         );
+    }
+
+    private void cleanupStaleWorkers() {
+        Set<String> workers = redisTemplate.opsForSet().members(RedisKeys.WORKER_LIST);
+        if (workers == null || workers.isEmpty()) {
+            return;
+        }
+
+        for (String worker : workers) {
+            if (worker == null || worker.isBlank()) {
+                continue;
+            }
+            int index = worker.indexOf(':');
+            if (index <= 0) {
+                redisTemplate.opsForSet().remove(RedisKeys.WORKER_LIST, worker);
+                continue;
+            }
+
+            String id = worker.substring(0, index);
+            Boolean alive = redisTemplate.hasKey(RedisKeys.WORKER_HEARTBEAT_PREFIX + id);
+            if (!Boolean.TRUE.equals(alive)) {
+                redisTemplate.opsForSet().remove(RedisKeys.WORKER_LIST, worker);
+            }
+        }
     }
 }

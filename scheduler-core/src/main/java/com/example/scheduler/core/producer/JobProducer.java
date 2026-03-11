@@ -18,7 +18,9 @@ public class JobProducer {
         this.kafkaTemplate = kafkaTemplate;
     }
 
+    @SuppressWarnings("null")
     public void send(JobMessage jobMessage) {
-        kafkaTemplate.send(topic, String.valueOf(jobMessage.getJobId()), JacksonUtil.toJson(jobMessage));
+        String currentTopic = (topic == null || topic.isBlank()) ? "scheduler_job_topic" : topic;
+        kafkaTemplate.send(currentTopic, String.valueOf(jobMessage.getJobId()), JacksonUtil.toJson(jobMessage));
     }
 }
