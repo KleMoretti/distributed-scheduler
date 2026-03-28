@@ -29,7 +29,8 @@ public class NettyResultClient {
     @Value("${scheduler.callback.port:19090}")
     private int port;
 
-    // Shared across all sendResult() calls — avoids spawning new threads per callback
+    // Shared across all sendResult() calls — avoids spawning new threads per
+    // callback
     private EventLoopGroup group;
 
     @PostConstruct
@@ -44,22 +45,37 @@ public class NettyResultClient {
         }
     }
 
-    public void sendResult(Long jobId, String workerId, int status, String message) {
+    public void sendResult(Long jobId,
+            String workerId,
+            int status,
+            String message,
+            int attempt,
+            int shardIndex,
+            int shardTotal) {
         try {
             Bootstrap bootstrap = new Bootstrap();
             bootstrap.group(group)
-                .channel(NioSocketChannel.class)
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 1000)
-                .handler(new ChannelInitializer<SocketChannel>() {
-                    @Override
-                    protected void initChannel(SocketChannel ch) {
-                        ch.pipeline().addLast(new StringEncoder(StandardCharsets.UTF_8));
-                    }
-                });
+                    .channel(NioSocketChannel.class)
+                    .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 1000)
+                    .handler(new ChannelInitializer<SocketChannel>() {
+                        @Override
+                        protected void initChannel(SocketChannel ch) {
+                            ch.pipeline().addLast(new StringEncoder(StandardCharsets.UTF_8));
+                        }
+                    });
 
             Channel channel = bootstrap.connect(host, port).sync().channel();
-            String payload = String.format("jobId=%d,worker=%s,status=%d,message=%s", jobId, workerId, status, message);
-            // Write String directly so StringEncoder converts it — no manual ByteBuf wrapping needed
+            String payload = String.format(
+                    "jobId=%d,worker=%s,status=%d,attempt=%d,shardIndex=%d,shardTotal=%d,message=%s",
+                    jobId,
+                    workerId,
+                    status,
+                    attempt,
+                    shardIndex,
+                    shardTotal,
+                    message);
+            // Write String directly so StringEncoder converts it — no manual ByteBuf
+            // wrapping needed
             channel.writeAndFlush(payload).sync();
             channel.close().sync();
         } catch (Exception ex) {

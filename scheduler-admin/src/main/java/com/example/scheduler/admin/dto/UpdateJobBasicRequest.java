@@ -22,6 +22,10 @@ public class UpdateJobBasicRequest {
     @Min(0)
     private Integer timeout;
 
+    @NotNull
+    @Min(1)
+    private Integer shardTotal;
+
     public String getJobName() {
         return jobName;
     }
@@ -60,5 +64,13 @@ public class UpdateJobBasicRequest {
 
     public void setTimeout(Integer timeout) {
         this.timeout = timeout;
+    }
+
+    public Integer getShardTotal() {
+        return shardTotal;
+    }
+
+    public void setShardTotal(Integer shardTotal) {
+        this.shardTotal = shardTotal;
     }
 }

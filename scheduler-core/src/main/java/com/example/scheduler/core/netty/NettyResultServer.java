@@ -16,6 +16,7 @@ import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -34,6 +35,11 @@ public class NettyResultServer {
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
     private ChannelFuture bindFuture;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    public NettyResultServer(SimpMessagingTemplate messagingTemplate) {
+        this.messagingTemplate = messagingTemplate;
+    }
 
     @PostConstruct
     public void start() {
@@ -43,32 +49,33 @@ public class NettyResultServer {
         try {
             ServerBootstrap bootstrap = new ServerBootstrap();
             bootstrap.group(bossGroup, workerGroup)
-                .channel(NioServerSocketChannel.class)
-                .option(ChannelOption.SO_BACKLOG, 128)
-                .childOption(ChannelOption.SO_KEEPALIVE, true)
-                .childHandler(new ChannelInitializer<SocketChannel>() {
-                    @Override
-                    protected void initChannel(SocketChannel ch) {
-                        ch.pipeline().addLast(new ChannelInboundHandlerAdapter() {
-                            @Override
-                            public void channelRead(ChannelHandlerContext ctx, Object msg) {
-                                if (msg instanceof ByteBuf byteBuf) {
-                                    String payload = byteBuf.toString(StandardCharsets.UTF_8).trim();
-                                    if (!payload.isBlank()) {
-                                        log.info("Receive worker callback: {}", payload);
+                    .channel(NioServerSocketChannel.class)
+                    .option(ChannelOption.SO_BACKLOG, 128)
+                    .childOption(ChannelOption.SO_KEEPALIVE, true)
+                    .childHandler(new ChannelInitializer<SocketChannel>() {
+                        @Override
+                        protected void initChannel(SocketChannel ch) {
+                            ch.pipeline().addLast(new ChannelInboundHandlerAdapter() {
+                                @Override
+                                public void channelRead(ChannelHandlerContext ctx, Object msg) {
+                                    if (msg instanceof ByteBuf byteBuf) {
+                                        String payload = byteBuf.toString(StandardCharsets.UTF_8).trim();
+                                        if (!payload.isBlank()) {
+                                            log.info("Receive worker callback: {}", payload);
+                                            messagingTemplate.convertAndSend("/topic/job-result", payload);
+                                        }
+                                        byteBuf.release();
                                     }
-                                    byteBuf.release();
                                 }
-                            }
 
-                            @Override
-                            public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-                                log.warn("Netty callback connection error", cause);
-                                ctx.close();
-                            }
-                        });
-                    }
-                });
+                                @Override
+                                public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+                                    log.warn("Netty callback connection error", cause);
+                                    ctx.close();
+                                }
+                            });
+                        }
+                    });
 
             bindFuture = bootstrap.bind(host, port).sync();
             log.info("Netty callback server started on {}:{}", host, port);

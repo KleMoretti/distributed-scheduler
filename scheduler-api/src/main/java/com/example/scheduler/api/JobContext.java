@@ -7,6 +7,9 @@ public class JobContext {
     private Long jobId;
     private String workerId;
     private LocalDateTime startTime;
+    private Integer attempt;
+    private Integer shardIndex;
+    private Integer shardTotal;
 
     public Long getJobId() {
         return jobId;
@@ -30,5 +33,29 @@ public class JobContext {
 
     public void setStartTime(LocalDateTime startTime) {
         this.startTime = startTime;
+    }
+
+    public Integer getAttempt() {
+        return attempt;
+    }
+
+    public void setAttempt(Integer attempt) {
+        this.attempt = attempt;
+    }
+
+    public Integer getShardIndex() {
+        return shardIndex;
+    }
+
+    public void setShardIndex(Integer shardIndex) {
+        this.shardIndex = shardIndex;
+    }
+
+    public Integer getShardTotal() {
+        return shardTotal;
+    }
+
+    public void setShardTotal(Integer shardTotal) {
+        this.shardTotal = shardTotal;
     }
 }

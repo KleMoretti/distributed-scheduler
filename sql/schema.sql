@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS job_info (
     status INT DEFAULT 1 COMMENT '任务状态: 0停止 1运行',
     retry_count INT DEFAULT 0 COMMENT '失败重试次数',
     timeout INT DEFAULT 0 COMMENT '超时时间(秒)',
+    shard_total INT DEFAULT 1 COMMENT '分片总数(>=1)',
     create_time DATETIME COMMENT '创建时间',
     update_time DATETIME COMMENT '更新时间'
 ) COMMENT='任务定义表';

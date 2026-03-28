@@ -34,20 +34,21 @@ public class JobManageService {
 
     public Long create(JobInfo jobInfo) {
         validateCron(jobInfo.getCron());
+        int shardTotal = jobInfo.getShardTotal() == null || jobInfo.getShardTotal() < 1 ? 1 : jobInfo.getShardTotal();
 
         LocalDateTime now = LocalDateTime.now();
         jdbcTemplate.update(
-            "INSERT INTO job_info(job_name, cron, handler_name, param, status, retry_count, timeout, create_time, update_time) VALUES(?,?,?,?,?,?,?,?,?)",
-            jobInfo.getJobName(),
-            jobInfo.getCron(),
-            jobInfo.getHandlerName(),
-            jobInfo.getParam(),
-            jobInfo.getStatus(),
-            jobInfo.getRetryCount() == null ? 0 : jobInfo.getRetryCount(),
-            jobInfo.getTimeout() == null ? 0 : jobInfo.getTimeout(),
-            Timestamp.valueOf(now),
-            Timestamp.valueOf(now)
-        );
+                "INSERT INTO job_info(job_name, cron, handler_name, param, status, retry_count, timeout, shard_total, create_time, update_time) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                jobInfo.getJobName(),
+                jobInfo.getCron(),
+                jobInfo.getHandlerName(),
+                jobInfo.getParam(),
+                jobInfo.getStatus(),
+                jobInfo.getRetryCount() == null ? 0 : jobInfo.getRetryCount(),
+                jobInfo.getTimeout() == null ? 0 : jobInfo.getTimeout(),
+                shardTotal,
+                Timestamp.valueOf(now),
+                Timestamp.valueOf(now));
         Long id = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
         Long createdId = id == null ? -1L : id;
 
@@ -59,33 +60,32 @@ public class JobManageService {
 
     public List<JobInfo> list() {
         return jdbcTemplate.query(
-            "SELECT id, job_name, cron, handler_name, param, status, retry_count, timeout, create_time, update_time FROM job_info ORDER BY id DESC",
-            (rs, rowNum) -> {
-                JobInfo jobInfo = new JobInfo();
-                jobInfo.setId(rs.getLong("id"));
-                jobInfo.setJobName(rs.getString("job_name"));
-                jobInfo.setCron(rs.getString("cron"));
-                jobInfo.setHandlerName(rs.getString("handler_name"));
-                jobInfo.setParam(rs.getString("param"));
-                jobInfo.setStatus(rs.getInt("status"));
-                jobInfo.setRetryCount(rs.getInt("retry_count"));
-                jobInfo.setTimeout(rs.getInt("timeout"));
-                Timestamp createTime = rs.getTimestamp("create_time");
-                Timestamp updateTime = rs.getTimestamp("update_time");
-                jobInfo.setCreateTime(createTime == null ? null : createTime.toLocalDateTime());
-                jobInfo.setUpdateTime(updateTime == null ? null : updateTime.toLocalDateTime());
-                return jobInfo;
-            }
-        );
+                "SELECT id, job_name, cron, handler_name, param, status, retry_count, timeout, shard_total, create_time, update_time FROM job_info ORDER BY id DESC",
+                (rs, rowNum) -> {
+                    JobInfo jobInfo = new JobInfo();
+                    jobInfo.setId(rs.getLong("id"));
+                    jobInfo.setJobName(rs.getString("job_name"));
+                    jobInfo.setCron(rs.getString("cron"));
+                    jobInfo.setHandlerName(rs.getString("handler_name"));
+                    jobInfo.setParam(rs.getString("param"));
+                    jobInfo.setStatus(rs.getInt("status"));
+                    jobInfo.setRetryCount(rs.getInt("retry_count"));
+                    jobInfo.setTimeout(rs.getInt("timeout"));
+                    jobInfo.setShardTotal(rs.getInt("shard_total"));
+                    Timestamp createTime = rs.getTimestamp("create_time");
+                    Timestamp updateTime = rs.getTimestamp("update_time");
+                    jobInfo.setCreateTime(createTime == null ? null : createTime.toLocalDateTime());
+                    jobInfo.setUpdateTime(updateTime == null ? null : updateTime.toLocalDateTime());
+                    return jobInfo;
+                });
     }
 
     public int updateStatus(Long id, int status) {
         int affected = jdbcTemplate.update(
-            "UPDATE job_info SET status = ?, update_time = ? WHERE id = ?",
-            status,
-            Timestamp.valueOf(LocalDateTime.now()),
-            id
-        );
+                "UPDATE job_info SET status = ?, update_time = ? WHERE id = ?",
+                status,
+                Timestamp.valueOf(LocalDateTime.now()),
+                id);
 
         if (affected > 0) {
             if (status == 1) {
@@ -103,11 +103,10 @@ public class JobManageService {
         validateCron(cron);
 
         int affected = jdbcTemplate.update(
-            "UPDATE job_info SET cron = ?, update_time = ? WHERE id = ?",
-            cron,
-            Timestamp.valueOf(LocalDateTime.now()),
-            id
-        );
+                "UPDATE job_info SET cron = ?, update_time = ? WHERE id = ?",
+                cron,
+                Timestamp.valueOf(LocalDateTime.now()),
+                id);
 
         if (affected > 0) {
             Integer status = jdbcTemplate.queryForObject("SELECT status FROM job_info WHERE id = ?", Integer.class, id);
@@ -120,15 +119,15 @@ public class JobManageService {
 
     public int updateBasicInfo(Long id, UpdateJobBasicRequest request) {
         int affected = jdbcTemplate.update(
-            "UPDATE job_info SET job_name = ?, handler_name = ?, param = ?, retry_count = ?, timeout = ?, update_time = ? WHERE id = ?",
-            request.getJobName(),
-            request.getHandlerName(),
-            request.getParam(),
-            request.getRetryCount(),
-            request.getTimeout(),
-            Timestamp.valueOf(LocalDateTime.now()),
-            id
-        );
+                "UPDATE job_info SET job_name = ?, handler_name = ?, param = ?, retry_count = ?, timeout = ?, shard_total = ?, update_time = ? WHERE id = ?",
+                request.getJobName(),
+                request.getHandlerName(),
+                request.getParam(),
+                request.getRetryCount(),
+                request.getTimeout(),
+                request.getShardTotal(),
+                Timestamp.valueOf(LocalDateTime.now()),
+                id);
 
         if (affected > 0) {
             Integer status = jdbcTemplate.queryForObject("SELECT status FROM job_info WHERE id = ?", Integer.class, id);
@@ -161,7 +160,8 @@ public class JobManageService {
 
     private void pauseSchedule(Long jobId) {
         try {
-            restTemplate.postForObject(schedulerCoreBaseUrl + "/internal/schedules/" + jobId + "/pause", null, String.class);
+            restTemplate.postForObject(schedulerCoreBaseUrl + "/internal/schedules/" + jobId + "/pause", null,
+                    String.class);
         } catch (Exception ex) {
             log.warn("Pause schedule failed, jobId={}", jobId, ex);
         }
@@ -169,7 +169,8 @@ public class JobManageService {
 
     private void resumeSchedule(Long jobId) {
         try {
-            restTemplate.postForObject(schedulerCoreBaseUrl + "/internal/schedules/" + jobId + "/resume", null, String.class);
+            restTemplate.postForObject(schedulerCoreBaseUrl + "/internal/schedules/" + jobId + "/resume", null,
+                    String.class);
         } catch (Exception ex) {
             log.warn("Resume schedule failed, jobId={}", jobId, ex);
         }
@@ -177,7 +178,8 @@ public class JobManageService {
 
     private void deleteSchedule(Long jobId) {
         try {
-            restTemplate.postForObject(schedulerCoreBaseUrl + "/internal/schedules/" + jobId + "/delete", null, String.class);
+            restTemplate.postForObject(schedulerCoreBaseUrl + "/internal/schedules/" + jobId + "/delete", null,
+                    String.class);
         } catch (Exception ex) {
             log.warn("Delete schedule failed, jobId={}", jobId, ex);
         }

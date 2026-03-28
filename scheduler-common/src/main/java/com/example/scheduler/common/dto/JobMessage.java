@@ -6,15 +6,22 @@ public class JobMessage {
     private String handlerName;
     private String param;
     private Integer retry;
+    private Integer attempt;
+    private Integer shardIndex;
+    private Integer shardTotal;
 
     public JobMessage() {
     }
 
-    public JobMessage(Long jobId, String handlerName, String param, Integer retry) {
+    public JobMessage(Long jobId, String handlerName, String param, Integer retry, Integer attempt, Integer shardIndex,
+            Integer shardTotal) {
         this.jobId = jobId;
         this.handlerName = handlerName;
         this.param = param;
         this.retry = retry;
+        this.attempt = attempt;
+        this.shardIndex = shardIndex;
+        this.shardTotal = shardTotal;
     }
 
     public Long getJobId() {
@@ -47,5 +54,29 @@ public class JobMessage {
 
     public void setRetry(Integer retry) {
         this.retry = retry;
+    }
+
+    public Integer getAttempt() {
+        return attempt;
+    }
+
+    public void setAttempt(Integer attempt) {
+        this.attempt = attempt;
+    }
+
+    public Integer getShardIndex() {
+        return shardIndex;
+    }
+
+    public void setShardIndex(Integer shardIndex) {
+        this.shardIndex = shardIndex;
+    }
+
+    public Integer getShardTotal() {
+        return shardTotal;
+    }
+
+    public void setShardTotal(Integer shardTotal) {
+        this.shardTotal = shardTotal;
     }
 }

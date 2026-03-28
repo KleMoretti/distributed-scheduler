@@ -1,6 +1,7 @@
 package com.example.scheduler.admin.entity;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDateTime;
@@ -25,6 +26,10 @@ public class JobInfo {
 
     private Integer retryCount;
     private Integer timeout;
+
+    @Min(1)
+    private Integer shardTotal;
+
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 
@@ -90,6 +95,14 @@ public class JobInfo {
 
     public void setTimeout(Integer timeout) {
         this.timeout = timeout;
+    }
+
+    public Integer getShardTotal() {
+        return shardTotal;
+    }
+
+    public void setShardTotal(Integer shardTotal) {
+        this.shardTotal = shardTotal;
     }
 
     public LocalDateTime getCreateTime() {

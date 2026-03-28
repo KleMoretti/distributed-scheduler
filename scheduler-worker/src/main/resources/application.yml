@@ -13,15 +13,21 @@ spring:
     redis:
       host: localhost
       port: 6379
-  kafka:
-    bootstrap-servers: localhost:9092
-    consumer:
-      auto-offset-reset: latest
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
 
 scheduler:
-  kafka:
-    topic: scheduler_job_topic
-    group: worker-group
+  rabbit:
+    exchange: scheduler.job.exchange
+    route-key: scheduler.job.route
+    queue: scheduler.job.queue
+    retry-exchange: scheduler.job.retry.exchange
+    retry-route-key: scheduler.job.retry.route
+    retry-queue: scheduler.job.retry.queue
+    retry-delay-ms: 10000
   worker:
     id: worker-1
     address: 127.0.0.1:8082
